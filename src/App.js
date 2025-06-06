@@ -171,7 +171,7 @@ const App = () => {
       let chatHistory = [];
       chatHistory.push({ role: "user", parts: [{ text: prompt }] });
       const payload = { contents: chatHistory };
-      const apiKey = "";
+      const apiKey = "AIzaSyAbZ-M2IktxokX0LaYGFpl0wIKozTuHkJY";
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -901,7 +901,7 @@ ${detailedAreaFaults}
         showAppMessage(`${addedCount} 項已成功匯入並新增！ ${skippedCount} 項因重複或無效而被跳過。`, "success");
       } catch (err) {
         console.error(`匯入 ${type} 列表失敗:`, err);
-        setError(`匯入失败: ${err.message}`);
+        setError(`匯入失敗: ${err.message}`);
       } finally {
         setIsLoading(false);
         if (event.target) event.target.value = null;
@@ -953,58 +953,40 @@ ${detailedAreaFaults}
         showAppMessage("圖片擷取功能尚未準備就緒。", "error");
         return;
     }
-    const elementToCapture = document.getElementById('dashboard-content-wrapper');
+    const elementToCapture = document.getElementById('app-container');
     if (!elementToCapture) {
-        showAppMessage("找不到可擷取的儀表板區域。", "error");
+        showAppMessage("找不到可擷取的應用程式區域。", "error");
         return;
     }
-    
-    // Temporarily set active tab to dashboard for capture if not already
-    const wasDashboardActive = activeTab === 'dashboard';
-    if (!wasDashboardActive) {
-        setActiveTab('dashboard');
-    }
-
     setIsLoading(true);
     showAppMessage("正在產生儀表板圖片，請稍候...", "info");
-    
-    // Use a short timeout to allow the DOM to update if the tab was just switched
-    setTimeout(() => {
-        window.html2canvas(elementToCapture, {
-            useCORS: true,
-            scale: 1.5,
-            backgroundColor: '#f3f4f6', // Match the body background
-            windowWidth: elementToCapture.scrollWidth,
-            windowHeight: elementToCapture.scrollHeight,
-            onclone: (document) => {
-                // Ensure the content is visible during cloning for capture
-                document.getElementById('dashboard-content-wrapper').style.display = 'block';
-            }
-        }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `科工館維修分析報告_${new Date().toISOString().slice(0,10)}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            showAppMessage("儀表板圖片已成功儲存！", "success");
-        }).catch(err => {
-            console.error("儲存圖片失敗:", err);
-            setError("儲存圖片失敗: " + err.message);
-        }).finally(() => {
-            setIsLoading(false);
-            // Revert tab state if it was changed
-            if (!wasDashboardActive) {
-                setActiveTab(activeTab); 
-            }
-        });
-    }, 250);
+
+    window.html2canvas(elementToCapture, {
+        useCORS: true,
+        scale: 2,
+        ignoreElements: (element) => element.classList.contains('screenshot-ignore')
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `科工館維修分析報告_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        setIsLoading(false);
+        showAppMessage("儀表板圖片已成功儲存！", "success");
+    }).catch(err => {
+        console.error("儲存圖片失敗:", err);
+        setError("儲存圖片失敗: " + err.message);
+        setIsLoading(false);
+    });
   };
 
-
-  if (!isAuthReady) return <div className="p-8 text-center text-xl">正在初始化用戶身份...</div>;
+  if (!isAuthReady) return <div className="p-8 text-center text-xl no-print">正在初始化用戶身份...</div>;
 
   return (
     <div id="app-container" className="min-h-screen bg-gray-100 p-4 font-sans">
-      <nav className="bg-white p-3 shadow-md rounded-lg mb-6 flex justify-center space-x-2 flex-wrap">
+      <header className="bg-blue-600 text-white p-6 rounded-t-lg shadow-lg">
+        <h1 className="text-3xl font-bold text-center">科工館設施維修智能分析系統</h1>
+      </header>
+      <nav className="bg-white p-3 shadow-md rounded-b-lg mb-6 flex justify-center space-x-2 flex-wrap">
         {['dashboard', 'data', 'upload', 'management'].map(tabName => (
           <button key={tabName} onClick={() => setActiveTab(tabName)}
             className={`px-6 py-2 my-1 rounded-md font-semibold transition-colors duration-200 ease-in-out ${activeTab === tabName ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}>
@@ -1015,16 +997,15 @@ ${detailedAreaFaults}
           </button>
         ))}
       </nav>
-      
       {(isLoading || isGeminiLoading) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[101]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[101] screenshot-ignore">
           <div className="bg-white p-5 rounded-lg shadow-xl text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-3"></div>
             <p className="text-lg font-semibold text-gray-700">{isGeminiLoading ? '智能分析中...' : '處理中，請稍候...'}</p>
           </div>
         </div>
       )}
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 screenshot-ignore" role="alert">
         <strong className="font-bold">錯誤!</strong> <span className="block sm:inline"> {error}</span>
         <button onClick={() => setError(null)} className="absolute top-0 bottom-0 right-0 px-4 py-3"><span className="text-2xl leading-none">&times;</span></button>
       </div>}
@@ -1032,156 +1013,163 @@ ${detailedAreaFaults}
       <ConfirmModal show={confirmModalConfig.show} message={confirmModalConfig.message} onConfirm={confirmModalConfig.onConfirm} onCancel={confirmModalConfig.onCancel} />
       <GeminiAnalysisModal isOpen={isGeminiModalOpen} onClose={() => setIsGeminiModalOpen(false)} analysisResult={geminiAnalysisResult} isLoading={isGeminiLoading} />
       
-      <div id="dashboard-content-wrapper" className={`${activeTab === 'dashboard' ? 'block' : 'hidden'}`}>
-        <header className="bg-blue-600 text-white p-6 rounded-t-lg shadow-lg">
-          <h1 className="text-3xl font-bold text-center">科工館設施維修智能分析系統</h1>
-        </header>
-        <div className="space-y-6 bg-gray-100 p-1 -m-1">
-            <div className="bg-white p-4 rounded-lg shadow">
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-gray-700">儀表板篩選</h3>
-                    <button
-                        onClick={handleRefreshAndRecategorize}
-                        className="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md text-sm disabled:opacity-50"
-                        disabled={isLoading || isGeminiLoading || records.length === 0}
-                    >
-                        🔄 重新整理與分類資料
-                    </button>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-                    <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                        <option value="">所有年份</option> {availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
-                    </select>
-                    <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                        <option value="">所有月份</option> {availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
-                    </select>
-                    <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                        <option value="">所有場域</option> {uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                        <option value="">所有區域</option> {availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                    <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                        <option value="">所有工作類型</option> {uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
-                    </select>
-                    <button onClick={() => {setYearFilter(''); setMonthFilter(''); setVenueFilter(''); setAreaFilter(''); setWorkTypeFilter(''); setSearchTerm('');}} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full col-span-1">清除篩選</button>
-                </div>
+      <div className={`${activeTab === 'upload' ? '' : 'hidden'}`}>
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">上傳 Excel 維修紀錄</h2>
+          <p className="text-gray-600 mb-2">支援 .xlsx 或 .xls 格式。</p>
+          <p className="text-gray-600 mb-4">必要欄位：工作屬性、請修日期 (YYYY/MM/DD)、請修時間 (HH:mm 12小時制)、故障描述、處理情形。</p>
+          {!isXlsxReady && <p className="text-orange-600 mb-2">Excel 處理功能載入中，請稍候... 如果長時間未就緒，請檢查網路連線或重新整理頁面。</p>}
+          <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+            disabled={isLoading || !isXlsxReady}/>
+        </div>
+      </div>
+      
+      <div className={`${activeTab === 'dashboard' ? 'space-y-6' : 'hidden'}`}>
+        <div className="bg-white p-4 rounded-lg shadow">
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-gray-700">儀表板篩選</h3>
+                <button
+                    onClick={handleRefreshAndRecategorize}
+                    className="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md text-sm disabled:opacity-50"
+                    disabled={isLoading || isGeminiLoading || records.length === 0}
+                >
+                    🔄 重新整理與分類資料
+                </button>
             </div>
-            <div className="dashboard-charts-area space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <DashboardCard title="場域維修分佈 (依篩選期間)">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                            <Pie data={venueData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                {venueData.map((entry, index) => (<Cell key={`cell-${index}`} fill={VENUE_COLORS[entry.name] || COLORS[index % COLORS.length]} />))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </DashboardCard>
-                    <DashboardCard title="區域維修熱點 (Top 15, 依篩選期間)">
-                        <ResponsiveContainer width="100%" height={300 + (Math.min(areaHotspotData.slice(0,15).length, 15)-10)*10}>
-                            <BarChart data={areaHotspotData.slice(0,15)} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 30 }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                <option value="">所有年份</option> {availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
+              </select>
+              <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                <option value="">所有月份</option> {availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
+              </select>
+              <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                <option value="">所有場域</option> {uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                <option value="">所有區域</option> {availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                <option value="">所有工作類型</option> {uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
+              </select>
+              <button onClick={() => {setYearFilter(''); setMonthFilter(''); setVenueFilter(''); setAreaFilter(''); setWorkTypeFilter(''); setSearchTerm('');}} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full col-span-1">清除篩選</button>
+            </div>
+        </div>
+        <div className="dashboard-area bg-gray-100 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <DashboardCard title="場域維修分佈 (依篩選期間)">
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                        <Pie data={venueData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                            {venueData.map((entry, index) => (<Cell key={`cell-${index}`} fill={VENUE_COLORS[entry.name] || COLORS[index % COLORS.length]} />))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </DashboardCard>
+                <DashboardCard title="區域維修熱點 (Top 15, 依篩選期間)">
+                    <ResponsiveContainer width="100%" height={300 + (Math.min(areaHotspotData.slice(0,15).length, 15)-10)*10}>
+                        <BarChart data={areaHotspotData.slice(0,15)} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" width={100} interval={0} tick={{fontSize: 12}} />
+                        <Tooltip />
+                        <Legend verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 10}} />
+                        <Bar dataKey="value" name="維修次數">
+                            {areaHotspotData.slice(0,15).map((entry, index) => {
+                            let color = VENUE_COLORS['未知場域'] || COLORS[index % COLORS.length];
+                            if (entry.name.startsWith('北館')) { color = VENUE_COLORS['北館']; }
+                            else if (entry.name.startsWith('南館')) { color = VENUE_COLORS['南館']; }
+                            return <Cell key={`cell-area-${index}`} fill={color} />;
+                            })}
+                        </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </DashboardCard>
+            </div>
+            {topThreeAreasFaultData.length > 0 && (
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">熱點區域異常類型分析 (Top 3 區域, 依篩選期間)</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {topThreeAreasFaultData.map(areaData => (
+                    <DashboardCard key={areaData.areaFullName} title={`${areaData.areaFullName} (共 ${areaData.totalRepairs} 次)`}>
+                    {areaData.faultTypes.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={200 + areaData.faultTypes.length * 15}>
+                        <BarChart data={areaData.faultTypes} layout="vertical" margin={{ top: 5, right: 10, left: 40, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" allowDecimals={false} />
-                            <YAxis type="category" dataKey="name" width={100} interval={0} tick={{fontSize: 12}} />
+                            <YAxis type="category" dataKey="name" width={80} interval={0} tick={{fontSize: 12}}/>
                             <Tooltip />
-                            <Legend verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 10}} />
-                            <Bar dataKey="value" name="維修次數">
-                                {areaHotspotData.slice(0,15).map((entry, index) => {
-                                let color = VENUE_COLORS['未知場域'] || COLORS[index % COLORS.length];
-                                if (entry.name.startsWith('北館')) { color = VENUE_COLORS['北館']; }
-                                else if (entry.name.startsWith('南館')) { color = VENUE_COLORS['南館']; }
-                                return <Cell key={`cell-area-${index}`} fill={color} />;
-                                })}
+                            <Bar dataKey="value" name="次數" fill={areaData.barColor} >
+                            <LabelList dataKey="value" position="center" style={{ fill: isColorDark(areaData.barColor) ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
                             </Bar>
-                            </BarChart>
+                        </BarChart>
                         </ResponsiveContainer>
+                    ) : <p className="text-center text-gray-500">此區域無詳細故障類型資料</p>}
                     </DashboardCard>
+                ))}
                 </div>
-                {topThreeAreasFaultData.length > 0 && (
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">熱點區域異常類型分析 (Top 3 區域, 依篩選期間)</h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {topThreeAreasFaultData.map(areaData => (
-                        <DashboardCard key={areaData.areaFullName} title={`${areaData.areaFullName} (共 ${areaData.totalRepairs} 次)`}>
-                        {areaData.faultTypes.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={200 + areaData.faultTypes.length * 15}>
-                            <BarChart data={areaData.faultTypes} layout="vertical" margin={{ top: 5, right: 10, left: 40, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" width={80} interval={0} tick={{fontSize: 12}}/>
-                                <Tooltip />
-                                <Bar dataKey="value" name="次數" fill={areaData.barColor} >
-                                <LabelList dataKey="value" position="center" style={{ fill: isColorDark(areaData.barColor) ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
-                                </Bar>
-                            </BarChart>
-                            </ResponsiveContainer>
-                        ) : <p className="text-center text-gray-500">此區域無詳細故障類型資料</p>}
-                        </DashboardCard>
-                    ))}
-                    </div>
+            </div>
+            )}
+            <DashboardCard title="材料使用量 (Top 20, 依篩選期間)">
+            <ResponsiveContainer width="100%" height={350 + (Math.min(materialUsageData.slice(0,20).length, 20)-10)*10}>
+                <BarChart data={materialUsageData.slice(0,20)} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} interval={0} tick={{fontSize: 11}} wrapperStyle={{ whiteSpace: 'normal', wordWrap: 'break-word' }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#00C49F" allowDecimals={false}/>
+                <Tooltip formatter={(value) => typeof value === 'number' ? value.toFixed(0) : value}/>
+                <Legend />
+                <Bar yAxisId="left" dataKey="數量" name="使用數量" fill="#00C49F">
+                    <LabelList dataKey="數量" position="center" style={{ fill: isColorDark("#00C49F") ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
+                </Bar>
+                </BarChart>
+            </ResponsiveContainer>
+            </DashboardCard>
+            <DashboardCard title="歷史維修頻率趨勢（依載入資料範圍）">
+            <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={overallMaintenanceTrendByWorkType} margin={{ top: 10, right: 30, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" label={{ value: '月份', position: 'insideBottomRight', offset: -10 }}/>
+                <YAxis allowDecimals={false}/>
+                <Tooltip />
+                <Legend />
+                {Object.keys(WORK_TYPE_COLORS).filter(type => type !== '其他').map(workType => (
+                    <Line key={workType} type="monotone" dataKey={workType} stroke={WORK_TYPE_COLORS[workType]} name={workType} activeDot={{ r: 6 }} strokeWidth={2} />
+                ))}
+                </LineChart>
+            </ResponsiveContainer>
+            </DashboardCard>
+            <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">智能分析與報告</h3>
+                <div className="flex flex-wrap gap-4">
+                    <button onClick={handleGeneratePreventiveMaintenanceSuggestions} className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isGeminiLoading || dashboardFilteredRecords.length === 0}>✨ 獲取智能維護建議</button>
+                    <button
+                        onClick={handleSaveAsImage}
+                        className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
+                        disabled={isLoading || isGeminiLoading || !isHtml2canvasReady}
+                    >
+                        📸 儀表板輸出
+                    </button>
                 </div>
-                )}
-                <DashboardCard title="材料使用量 (Top 20, 依篩選期間)">
-                <ResponsiveContainer width="100%" height={350 + (Math.min(materialUsageData.slice(0,20).length, 20)-10)*10}>
-                    <BarChart data={materialUsageData.slice(0,20)} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} interval={0} tick={{fontSize: 11}} wrapperStyle={{ whiteSpace: 'normal', wordWrap: 'break-word' }} />
-                    <YAxis yAxisId="left" orientation="left" stroke="#00C49F" allowDecimals={false}/>
-                    <Tooltip formatter={(value) => typeof value === 'number' ? value.toFixed(0) : value}/>
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="數量" name="使用數量" fill="#00C49F">
-                        <LabelList dataKey="數量" position="center" style={{ fill: isColorDark("#00C49F") ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
-                    </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-                </DashboardCard>
-                <DashboardCard title="歷史維修頻率趨勢（依載入資料範圍）">
-                <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={overallMaintenanceTrendByWorkType} margin={{ top: 10, right: 30, left: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" label={{ value: '月份', position: 'insideBottomRight', offset: -10 }}/>
-                    <YAxis allowDecimals={false}/>
-                    <Tooltip />
-                    <Legend />
-                    {Object.keys(WORK_TYPE_COLORS).filter(type => type !== '其他').map(workType => (
-                        <Line key={workType} type="monotone" dataKey={workType} stroke={WORK_TYPE_COLORS[workType]} name={workType} activeDot={{ r: 6 }} strokeWidth={2} />
-                    ))}
-                    </LineChart>
-                </ResponsiveContainer>
-                </DashboardCard>
-                <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-3">智能分析與報告</h3>
-                    <div className="flex flex-wrap gap-4">
-                        <button onClick={handleGeneratePreventiveMaintenanceSuggestions} className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isGeminiLoading || dashboardFilteredRecords.length === 0}>✨ 獲取智能維護建議</button>
-                        <button
-                            onClick={handleSaveAsImage}
-                            className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
-                            disabled={isLoading || isGeminiLoading || !isHtml2canvasReady}
-                        >
-                            📸 儀表板輸出
-                        </button>
-                    </div>
-                    {dashboardFilteredRecords.length === 0 && <p className="text-sm text-yellow-600 mt-2">目前篩選條件下無資料可供分析。</p>}
-                    <div className="mt-4">
-                        <h4 className="text-lg font-semibold text-gray-700">潛在分析洞見 (模擬, 依篩選期間):</h4>
-                        {dashboardFilteredRecords.length > 0 ? (
-                        <ul className="list-disc list-inside text-gray-600 space-y-1">
-                            {areaHotspotData.length > 0 && <li>異常高發區域：{areaHotspotData[0].name} (共 {areaHotspotData[0].value} 次)</li>}
-                            {dashboardMaintenanceTrendData.length > 0 && <li>維修高峰可能集中在：{dashboardMaintenanceTrendData.sort((a,b) => b.維修數量 - a.維修數量)[0]?.name || 'N/A'}</li>}
-                            {materialUsageData.length > 0 && <li>最常用材料：{materialUsageData[0].name} (共 {materialUsageData[0].數量} 件)</li>}
-                            <li>建議對高發區域及常用損耗材料進行預防性檢查與備料。</li>
-                        </ul>
-                        ) : (<p className="text-gray-500">尚無足夠資料生成分析洞見。</p>)}
-                    </div>
+                {dashboardFilteredRecords.length === 0 && activeTab === 'dashboard' && <p className="text-sm text-yellow-600 mt-2">目前篩選條件下無資料可供分析。</p>}
+                <div className="mt-4">
+                    <h4 className="text-lg font-semibold text-gray-700">潛在分析洞見 (模擬, 依篩選期間):</h4>
+                    {dashboardFilteredRecords.length > 0 ? (
+                    <ul className="list-disc list-inside text-gray-600 space-y-1">
+                        {areaHotspotData.length > 0 && <li>異常高發區域：{areaHotspotData[0].name} (共 {areaHotspotData[0].value} 次)</li>}
+                        {dashboardMaintenanceTrendData.length > 0 && <li>維修高峰可能集中在：{dashboardMaintenanceTrendData.sort((a,b) => b.維修數量 - a.維修數量)[0]?.name || 'N/A'}</li>}
+                        {materialUsageData.length > 0 && <li>最常用材料：{materialUsageData[0].name} (共 {materialUsageData[0].數量} 件)</li>}
+                        <li>建議對高發區域及常用損耗材料進行預防性檢查與備料。</li>
+                    </ul>
+                    ) : (<p className="text-gray-500">尚無足夠資料生成分析洞見。</p>)}
                 </div>
             </div>
         </div>
       </div>
 
-      <div className={`${activeTab === 'data' ? 'block' : 'hidden'}`}>
+      <div className={`${activeTab === 'data' ? '' : 'hidden'}`}>
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">維修紀錄列表</h2>
           <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
@@ -1243,7 +1231,7 @@ ${detailedAreaFaults}
         </div>
       </div>
       
-      <div className={`${activeTab === 'management' ? 'block' : 'hidden'}`}>
+      <div className={`${activeTab === 'management' ? 'space-y-8' : 'hidden'}`}>
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">⚙️ 管理設定</h2>
           <section className="mb-8">
@@ -1320,7 +1308,7 @@ ${detailedAreaFaults}
         </div>
       </div>
       
-      <footer className="text-center text-sm text-gray-500 mt-8 pb-4">科工館設施維修智能分析系統 © {new Date().getFullYear()}</footer>
+      <footer className="text-center text-sm text-gray-500 mt-8 pb-4 screenshot-ignore">科工館設施維修智能分析系統 © {new Date().getFullYear()}</footer>
     </div>
   );
 };
@@ -1338,7 +1326,7 @@ const CustomMessageModal = ({ show, text, type, onClose }) => {
   if (type === 'error') { titleText = "錯誤"; titleColor = "text-red-600"; }
   if (type === 'success') { titleText = "成功"; titleColor = "text-green-600"; }
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[101]">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100] screenshot-ignore">
       <div className="p-5 border w-auto max-w-md shadow-lg rounded-md bg-white mx-4">
         <div className="text-center">
           <h3 className={`text-xl leading-6 font-medium ${titleColor} mb-2`}>{titleText}</h3>
@@ -1356,7 +1344,7 @@ const CustomMessageModal = ({ show, text, type, onClose }) => {
 const ConfirmModal = ({ show, message, onConfirm, onCancel }) => {
   if (!show) return null;
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100]">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100] screenshot-ignore">
       <div className="p-5 border w-auto max-w-md shadow-lg rounded-md bg-white mx-4">
         <div className="text-center">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">{message}</h3>
@@ -1372,7 +1360,7 @@ const ConfirmModal = ({ show, message, onConfirm, onCancel }) => {
 const GeminiAnalysisModal = ({ isOpen, onClose, analysisResult, isLoading }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100]">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100] screenshot-ignore">
       <div className="p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl leading-6 font-medium text-indigo-700">✨ 智能分析結果</h3>
