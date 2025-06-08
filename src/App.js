@@ -171,7 +171,7 @@ const App = () => {
       let chatHistory = [];
       chatHistory.push({ role: "user", parts: [{ text: prompt }] });
       const payload = { contents: chatHistory };
-      const apiKey = "AIzaSyAbZ-M2IktxokX0LaYGFpl0wIKozTuHkJY";
+      const apiKey = "";
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -948,55 +948,70 @@ ${detailedAreaFaults}
     }
   };
 
+  /**
+   * 處理將儀表板（包含標題、篩選器和圖表）儲存為 PNG 圖片的函數。
+   */
   const handleSaveAsImage = () => {
+    // 步驟 1：檢查 html2canvas 函式庫是否已載入完成
     if (!isHtml2canvasReady) {
-        showAppMessage("圖片擷取功能尚未準備就緒。", "error");
-        return;
+      showAppMessage("圖片擷取功能尚未準備就緒。", "error");
+      return;
     }
-    const elementToCapture = document.getElementById('app-container');
+
+    // 步驟 2：選定要擷取的 DOM 元素。'capture-wrapper' 這個 div 包含了標題、導覽列以及儀表板內容，
+    // 是我們設定好要擷取的特定區塊。這樣可以確保截圖範圍包含您指定的標題和篩選器。
+    const elementToCapture = document.getElementById('capture-wrapper');
     if (!elementToCapture) {
-        showAppMessage("找不到可擷取的應用程式區域。", "error");
-        return;
+      showAppMessage("找不到可擷取的儀表板區域 ('capture-wrapper' not found)。", "error");
+      return;
     }
+    
+    // 步驟 3：顯示載入提示，並準備開始截圖
     setIsLoading(true);
     showAppMessage("正在產生儀表板圖片，請稍候...", "info");
-
-    window.html2canvas(elementToCapture, {
-        useCORS: true,
-        scale: 2,
-        ignoreElements: (element) => element.classList.contains('screenshot-ignore')
-    }).then(canvas => {
+    
+    // 步驟 4：使用 setTimeout 延遲執行，確保 DOM 更新與樣式套用都已完成
+    setTimeout(() => {
+      // 呼叫 html2canvas 核心函數
+      window.html2canvas(elementToCapture, {
+        // --- 截圖選項配置 ---
+        useCORS: true, // 允許 html2canvas 請求跨來源的圖片資源
+        scale: 1.5,    // 提升截圖的解析度，數值越大圖片越清晰
+        backgroundColor: '#f3f4f6', // 為截圖設定一個純色背景，避免因透明元素產生黑邊或非預期效果
+        
+        // onclone 回呼函數：在 html2canvas 複製當前頁面 DOM 結構以進行渲染前執行。
+        // 這不會影響到使用者看到的即時頁面。
+        onclone: (clonedDoc) => {
+          // 在複製的文檔中，尋找儀表板內容區塊並確保其為可見狀態。
+          // 這是一道保險，防止因 CSS 或 JS 的狀態變化導致儀表板在截圖的瞬間被意外隱藏。
+          const dashboardContent = clonedDoc.getElementById('dashboard-content');
+          if (dashboardContent) {
+            dashboardContent.style.display = 'block';
+          }
+        }
+      }).then(canvas => {
+        // 步驟 5：截圖成功後，將回傳的 canvas 物件轉換為圖片並觸發下載
         const link = document.createElement('a');
-        link.download = `科工館維修分析報告_${new Date().toISOString().slice(0,10)}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        setIsLoading(false);
+        link.download = `科工館維修分析報告_${new Date().toISOString().slice(0,10)}.png`; // 設定下載檔名
+        link.href = canvas.toDataURL('image/png'); // 將 canvas 內容轉換為 base64 格式的 PNG 圖片 URL
+        link.click(); // 模擬點擊連結以觸發瀏覽器下載
         showAppMessage("儀表板圖片已成功儲存！", "success");
-    }).catch(err => {
+      }).catch(err => {
+        // 步驟 6：處理截圖過程中發生的錯誤
         console.error("儲存圖片失敗:", err);
         setError("儲存圖片失敗: " + err.message);
+      }).finally(() => {
+        // 步驟 7：無論成功或失敗，都隱藏載入提示
         setIsLoading(false);
-    });
+      });
+    }, 250); // 延遲 250 毫秒，給予瀏覽器足夠的渲染時間
   };
 
-  if (!isAuthReady) return <div className="p-8 text-center text-xl no-print">正在初始化用戶身份...</div>;
+
+  if (!isAuthReady) return <div className="p-8 text-center text-xl">正在初始化用戶身份...</div>;
 
   return (
     <div id="app-container" className="min-h-screen bg-gray-100 p-4 font-sans">
-      <header className="bg-blue-600 text-white p-6 rounded-t-lg shadow-lg">
-        <h1 className="text-3xl font-bold text-center">科工館設施維修智能分析系統</h1>
-      </header>
-      <nav className="bg-white p-3 shadow-md rounded-b-lg mb-6 flex justify-center space-x-2 flex-wrap">
-        {['dashboard', 'data', 'upload', 'management'].map(tabName => (
-          <button key={tabName} onClick={() => setActiveTab(tabName)}
-            className={`px-6 py-2 my-1 rounded-md font-semibold transition-colors duration-200 ease-in-out ${activeTab === tabName ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}>
-            {tabName === 'dashboard' && '儀表板'}
-            {tabName === 'data' && '資料列表'}
-            {tabName === 'upload' && '上傳資料'}
-            {tabName === 'management' && '⚙️ 管理設定'}
-          </button>
-        ))}
-      </nav>
       {(isLoading || isGeminiLoading) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[101] screenshot-ignore">
           <div className="bg-white p-5 rounded-lg shadow-xl text-center">
@@ -1013,21 +1028,27 @@ ${detailedAreaFaults}
       <ConfirmModal show={confirmModalConfig.show} message={confirmModalConfig.message} onConfirm={confirmModalConfig.onConfirm} onCancel={confirmModalConfig.onCancel} />
       <GeminiAnalysisModal isOpen={isGeminiModalOpen} onClose={() => setIsGeminiModalOpen(false)} analysisResult={geminiAnalysisResult} isLoading={isGeminiLoading} />
       
-      <div className={`${activeTab === 'upload' ? '' : 'hidden'}`}>
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">上傳 Excel 維修紀錄</h2>
-          <p className="text-gray-600 mb-2">支援 .xlsx 或 .xls 格式。</p>
-          <p className="text-gray-600 mb-4">必要欄位：工作屬性、請修日期 (YYYY/MM/DD)、請修時間 (HH:mm 12小時制)、故障描述、處理情形。</p>
-          {!isXlsxReady && <p className="text-orange-600 mb-2">Excel 處理功能載入中，請稍候... 如果長時間未就緒，請檢查網路連線或重新整理頁面。</p>}
-          <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
-            disabled={isLoading || !isXlsxReady}/>
-        </div>
-      </div>
-      
-      <div className={`${activeTab === 'dashboard' ? 'space-y-6' : 'hidden'}`}>
-        <div className="bg-white p-4 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-2">
+      <div id="capture-wrapper">
+        <header className="bg-blue-600 text-white p-6 rounded-t-lg shadow-lg">
+          <h1 className="text-3xl font-bold text-center">科工館設施維修智能分析系統</h1>
+        </header>
+
+        <nav className="bg-white p-3 shadow-md rounded-b-lg mb-6 flex justify-center space-x-2 flex-wrap">
+          {['dashboard', 'data', 'upload', 'management'].map(tabName => (
+            <button key={tabName} onClick={() => setActiveTab(tabName)}
+              className={`px-6 py-2 my-1 rounded-md font-semibold transition-colors duration-200 ease-in-out ${activeTab === tabName ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}>
+              {tabName === 'dashboard' && '儀表板'}
+              {tabName === 'data' && '資料列表'}
+              {tabName === 'upload' && '上傳資料'}
+              {tabName === 'management' && '⚙️ 管理設定'}
+            </button>
+          ))}
+        </nav>
+
+        <main>
+          <div id="dashboard-content" className={`tab-content ${activeTab === 'dashboard' ? 'space-y-6' : 'hidden'}`}>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-semibold text-gray-700">儀表板篩選</h3>
                 <button
                     onClick={handleRefreshAndRecategorize}
@@ -1036,28 +1057,28 @@ ${detailedAreaFaults}
                 >
                     🔄 重新整理與分類資料
                 </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                  <option value="">所有年份</option> {availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
+                </select>
+                <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                  <option value="">所有月份</option> {availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
+                </select>
+                <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                  <option value="">所有場域</option> {uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+                <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                  <option value="">所有區域</option> {availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
+                  <option value="">所有工作類型</option> {uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
+                </select>
+                <button onClick={() => {setYearFilter(''); setMonthFilter(''); setVenueFilter(''); setAreaFilter(''); setWorkTypeFilter(''); setSearchTerm('');}} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full col-span-1">清除篩選</button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                <option value="">所有年份</option> {availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
-              </select>
-              <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                <option value="">所有月份</option> {availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
-              </select>
-              <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                <option value="">所有場域</option> {uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                <option value="">所有區域</option> {availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full col-span-1">
-                <option value="">所有工作類型</option> {uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
-              </select>
-              <button onClick={() => {setYearFilter(''); setMonthFilter(''); setVenueFilter(''); setAreaFilter(''); setWorkTypeFilter(''); setSearchTerm('');}} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full col-span-1">清除篩選</button>
-            </div>
-        </div>
-        <div className="dashboard-area bg-gray-100 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="dashboard-charts-area space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <DashboardCard title="場域維修分佈 (依篩選期間)">
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
@@ -1088,226 +1109,230 @@ ${detailedAreaFaults}
                         </BarChart>
                     </ResponsiveContainer>
                 </DashboardCard>
+              </div>
+              {topThreeAreasFaultData.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">熱點區域異常類型分析 (Top 3 區域, 依篩選期間)</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {topThreeAreasFaultData.map(areaData => (
+                      <DashboardCard key={areaData.areaFullName} title={`${areaData.areaFullName} (共 ${areaData.totalRepairs} 次)`}>
+                      {areaData.faultTypes.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={200 + areaData.faultTypes.length * 15}>
+                          <BarChart data={areaData.faultTypes} layout="vertical" margin={{ top: 5, right: 10, left: 40, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis type="number" allowDecimals={false} />
+                              <YAxis type="category" dataKey="name" width={80} interval={0} tick={{fontSize: 12}}/>
+                              <Tooltip />
+                              <Bar dataKey="value" name="次數" fill={areaData.barColor} >
+                              <LabelList dataKey="value" position="center" style={{ fill: isColorDark(areaData.barColor) ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
+                              </Bar>
+                          </BarChart>
+                          </ResponsiveContainer>
+                      ) : <p className="text-center text-gray-500">此區域無詳細故障類型資料</p>}
+                      </DashboardCard>
+                  ))}
+                  </div>
+              </div>
+              )}
+              <DashboardCard title="材料使用量 (Top 20, 依篩選期間)">
+              <ResponsiveContainer width="100%" height={350 + (Math.min(materialUsageData.slice(0,20).length, 20)-10)*10}>
+                  <BarChart data={materialUsageData.slice(0,20)} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} interval={0} tick={{fontSize: 11}} wrapperStyle={{ whiteSpace: 'normal', wordWrap: 'break-word' }} />
+                  <YAxis yAxisId="left" orientation="left" stroke="#00C49F" allowDecimals={false}/>
+                  <Tooltip formatter={(value) => typeof value === 'number' ? value.toFixed(0) : value}/>
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="數量" name="使用數量" fill="#00C49F">
+                      <LabelList dataKey="數量" position="center" style={{ fill: isColorDark("#00C49F") ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
+                  </Bar>
+                  </BarChart>
+              </ResponsiveContainer>
+              </DashboardCard>
+              <DashboardCard title="歷史維修頻率趨勢（依載入資料範圍）">
+              <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={overallMaintenanceTrendByWorkType} margin={{ top: 10, right: 30, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" label={{ value: '月份', position: 'insideBottomRight', offset: -10 }}/>
+                  <YAxis allowDecimals={false}/>
+                  <Tooltip />
+                  <Legend />
+                  {Object.keys(WORK_TYPE_COLORS).filter(type => type !== '其他').map(workType => (
+                      <Line key={workType} type="monotone" dataKey={workType} stroke={WORK_TYPE_COLORS[workType]} name={workType} activeDot={{ r: 6 }} strokeWidth={2} />
+                  ))}
+                  </LineChart>
+              </ResponsiveContainer>
+              </DashboardCard>
+              <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-3">智能分析與報告</h3>
+                  <div className="flex flex-wrap gap-4">
+                      <button onClick={handleGeneratePreventiveMaintenanceSuggestions} className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isGeminiLoading || dashboardFilteredRecords.length === 0}>✨ 獲取智能維護建議</button>
+                      <button
+                          onClick={handleSaveAsImage}
+                          className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
+                          disabled={isLoading || isGeminiLoading || !isHtml2canvasReady}
+                      >
+                          📸 儀表板輸出
+                      </button>
+                  </div>
+              </div>
             </div>
-            {topThreeAreasFaultData.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">熱點區域異常類型分析 (Top 3 區域, 依篩選期間)</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {topThreeAreasFaultData.map(areaData => (
-                    <DashboardCard key={areaData.areaFullName} title={`${areaData.areaFullName} (共 ${areaData.totalRepairs} 次)`}>
-                    {areaData.faultTypes.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={200 + areaData.faultTypes.length * 15}>
-                        <BarChart data={areaData.faultTypes} layout="vertical" margin={{ top: 5, right: 10, left: 40, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis type="number" allowDecimals={false} />
-                            <YAxis type="category" dataKey="name" width={80} interval={0} tick={{fontSize: 12}}/>
-                            <Tooltip />
-                            <Bar dataKey="value" name="次數" fill={areaData.barColor} >
-                            <LabelList dataKey="value" position="center" style={{ fill: isColorDark(areaData.barColor) ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
-                            </Bar>
-                        </BarChart>
-                        </ResponsiveContainer>
-                    ) : <p className="text-center text-gray-500">此區域無詳細故障類型資料</p>}
-                    </DashboardCard>
-                ))}
-                </div>
-            </div>
-            )}
-            <DashboardCard title="材料使用量 (Top 20, 依篩選期間)">
-            <ResponsiveContainer width="100%" height={350 + (Math.min(materialUsageData.slice(0,20).length, 20)-10)*10}>
-                <BarChart data={materialUsageData.slice(0,20)} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} interval={0} tick={{fontSize: 11}} wrapperStyle={{ whiteSpace: 'normal', wordWrap: 'break-word' }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#00C49F" allowDecimals={false}/>
-                <Tooltip formatter={(value) => typeof value === 'number' ? value.toFixed(0) : value}/>
-                <Legend />
-                <Bar yAxisId="left" dataKey="數量" name="使用數量" fill="#00C49F">
-                    <LabelList dataKey="數量" position="center" style={{ fill: isColorDark("#00C49F") ? '#FFFFFF' : '#4A5568', fontSize: '10px', fontWeight: '500' }} />
-                </Bar>
-                </BarChart>
-            </ResponsiveContainer>
-            </DashboardCard>
-            <DashboardCard title="歷史維修頻率趨勢（依載入資料範圍）">
-            <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={overallMaintenanceTrendByWorkType} margin={{ top: 10, right: 30, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" label={{ value: '月份', position: 'insideBottomRight', offset: -10 }}/>
-                <YAxis allowDecimals={false}/>
-                <Tooltip />
-                <Legend />
-                {Object.keys(WORK_TYPE_COLORS).filter(type => type !== '其他').map(workType => (
-                    <Line key={workType} type="monotone" dataKey={workType} stroke={WORK_TYPE_COLORS[workType]} name={workType} activeDot={{ r: 6 }} strokeWidth={2} />
-                ))}
-                </LineChart>
-            </ResponsiveContainer>
-            </DashboardCard>
-            <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">智能分析與報告</h3>
-                <div className="flex flex-wrap gap-4">
-                    <button onClick={handleGeneratePreventiveMaintenanceSuggestions} className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isGeminiLoading || dashboardFilteredRecords.length === 0}>✨ 獲取智能維護建議</button>
-                    <button
-                        onClick={handleSaveAsImage}
-                        className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
-                        disabled={isLoading || isGeminiLoading || !isHtml2canvasReady}
-                    >
-                        📸 儀表板輸出
-                    </button>
-                </div>
-                {dashboardFilteredRecords.length === 0 && activeTab === 'dashboard' && <p className="text-sm text-yellow-600 mt-2">目前篩選條件下無資料可供分析。</p>}
-                <div className="mt-4">
-                    <h4 className="text-lg font-semibold text-gray-700">潛在分析洞見 (模擬, 依篩選期間):</h4>
-                    {dashboardFilteredRecords.length > 0 ? (
-                    <ul className="list-disc list-inside text-gray-600 space-y-1">
-                        {areaHotspotData.length > 0 && <li>異常高發區域：{areaHotspotData[0].name} (共 {areaHotspotData[0].value} 次)</li>}
-                        {dashboardMaintenanceTrendData.length > 0 && <li>維修高峰可能集中在：{dashboardMaintenanceTrendData.sort((a,b) => b.維修數量 - a.維修數量)[0]?.name || 'N/A'}</li>}
-                        {materialUsageData.length > 0 && <li>最常用材料：{materialUsageData[0].name} (共 {materialUsageData[0].數量} 件)</li>}
-                        <li>建議對高發區域及常用損耗材料進行預防性檢查與備料。</li>
-                    </ul>
-                    ) : (<p className="text-gray-500">尚無足夠資料生成分析洞見。</p>)}
-                </div>
-            </div>
-        </div>
+          </div>
+        </main>
       </div>
 
-      <div className={`${activeTab === 'data' ? '' : 'hidden'}`}>
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">維修紀錄列表</h2>
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-            <input type="text" placeholder="搜尋..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md w-full col-span-full lg:col-span-2"/>
-            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full">
-                <option value="">所有年份</option>{availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
-            </select>
-            <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full">
-                <option value="">所有月份</option>{availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
-            </select>
-            <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full">
-                <option value="">所有場域</option>{uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-            <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full">
-                <option value="">所有區域</option>{availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full">
-                <option value="">所有工作類型</option>{uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
-            </select>
-          </div>
-          <div className="mb-4 flex justify-between items-center">
-            <button
-                onClick={handleDeleteAllFilteredRecords}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm disabled:opacity-50"
-                disabled={isLoading || isGeminiLoading || filteredRecords.length === 0}
-            >
-                🗑️ 全部刪除目前篩選紀錄 ({filteredRecords.length})
-            </button>
-            <button onClick={exportToExcel} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isLoading || filteredRecords.length === 0 || !isXlsxReady}>匯出 Excel 報告</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50"><tr>{['請修日期', '時間', '場域', '區域', '工作屬性', '故障描述', '處理情形', '材料', '標籤', '操作'].map(header => (<th key={header} scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{header}</th>))}</tr></thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRecords.map((record) => (
-                  <tr key={record.id || record.originalIndex} className={`${!record.isValid ? 'bg-red-50' : ''} hover:bg-gray-50`}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.requestDate}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.requestTime}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.venue}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.area}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${WORK_TYPE_COLORS[record.workTypeClassification] ? '' : 'bg-gray-100 text-gray-800'}`} style={{backgroundColor: WORK_TYPE_COLORS[record.workTypeClassification] ? `${WORK_TYPE_COLORS[record.workTypeClassification]}20` : undefined, color: WORK_TYPE_COLORS[record.workTypeClassification] || undefined}}>{record.workTypeClassification}</span></td>
-                    <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={record.faultDescription}>{record.faultDescription}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={record.handlingStatus}>{record.handlingStatus}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{record.materialsUsed && record.materialsUsed.map(m => `${m.name}(${m.quantity})`).join(', ')}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{record.faultTags && record.faultTags.map(tag => (<span key={tag} className="mr-1 mb-1 px-2 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-purple-100 text-purple-800">{tag}</span>))}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium"><button onClick={() => deleteRecord(record.id)} className="text-red-600 hover:text-red-800 transition-colors">刪除</button></td>
-                  </tr>
-                ))}
-                {filteredRecords.length === 0 && (<tr><td colSpan="10" className="text-center py-4 text-gray-500">無符合條件的紀錄。</td></tr>)}
-              </tbody>
-            </table>
-          </div>
-          {!records.every(r => r.isValid) && records.some(r => !r.isValid) && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-              <h4 className="font-semibold text-yellow-700">注意：</h4>
-              <p className="text-sm text-yellow-600">{records.filter(r => !r.isValid).length} 條紀錄因資料格式錯誤或欄位缺失而未顯示在主要列表或分析中。請檢查上傳檔案的以下欄位：{ [...new Set(records.filter(r => !r.isValid).flatMap(r => r.validationErrors))].join(', ') }。</p>
+      <main className='screenshot-ignore'>
+        <div id="data-content" className={`tab-content ${activeTab === 'data' ? 'block' : 'hidden'}`}>
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">維修紀錄列表</h2>
+                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+                    <input type="text" placeholder="搜尋..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md w-full col-span-full lg:col-span-2"/>
+                    <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="p-2 border rounded-md w-full">
+                        <option value="">所有年份</option>{availableYearOptions.map(y => <option key={y} value={y}>{y}年</option>)}
+                    </select>
+                    <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="p-2 border rounded-md w-full">
+                        <option value="">所有月份</option>{availableMonthOptions.map(m => <option key={m} value={m}>{m}月</option>)}
+                    </select>
+                    <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)} className="p-2 border rounded-md w-full">
+                        <option value="">所有場域</option>{uniqueVenueValues().map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="p-2 border rounded-md w-full">
+                        <option value="">所有區域</option>{availableAreaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <select value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} className="p-2 border rounded-md w-full">
+                        <option value="">所有工作類型</option>{uniqueWorkTypeValues().map(wt => <option key={wt} value={wt}>{wt}</option>)}
+                    </select>
+                </div>
+                <div className="mb-4 flex justify-between items-center">
+                    <button
+                        onClick={handleDeleteAllFilteredRecords}
+                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm disabled:opacity-50"
+                        disabled={isLoading || isGeminiLoading || filteredRecords.length === 0}
+                    >
+                        🗑️ 全部刪除目前篩選紀錄 ({filteredRecords.length})
+                    </button>
+                    <button onClick={exportToExcel} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled={isLoading || filteredRecords.length === 0 || !isXlsxReady}>匯出 Excel 報告</button>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50"><tr>{['請修日期', '時間', '場域', '區域', '工作屬性', '故障描述', '處理情形', '材料', '標籤', '操作'].map(header => (<th key={header} scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{header}</th>))}</tr></thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredRecords.map((record) => (
+                        <tr key={record.id || record.originalIndex} className={`${!record.isValid ? 'bg-red-50' : ''} hover:bg-gray-50`}>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.requestDate}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.requestTime}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.venue}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record.area}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${WORK_TYPE_COLORS[record.workTypeClassification] ? '' : 'bg-gray-100 text-gray-800'}`} style={{backgroundColor: WORK_TYPE_COLORS[record.workTypeClassification] ? `${WORK_TYPE_COLORS[record.workTypeClassification]}20` : undefined, color: WORK_TYPE_COLORS[record.workTypeClassification] || undefined}}>{record.workTypeClassification}</span></td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={record.faultDescription}>{record.faultDescription}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={record.handlingStatus}>{record.handlingStatus}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{record.materialsUsed && record.materialsUsed.map(m => `${m.name}(${m.quantity})`).join(', ')}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{record.faultTags && record.faultTags.map(tag => (<span key={tag} className="mr-1 mb-1 px-2 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-purple-100 text-purple-800">{tag}</span>))}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium"><button onClick={() => deleteRecord(record.id)} className="text-red-600 hover:text-red-800 transition-colors">刪除</button></td>
+                        </tr>
+                        ))}
+                        {filteredRecords.length === 0 && (<tr><td colSpan="10" className="text-center py-4 text-gray-500">無符合條件的紀錄。</td></tr>)}
+                    </tbody>
+                    </table>
+                </div>
+                {!records.every(r => r.isValid) && records.some(r => !r.isValid) && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                    <h4 className="font-semibold text-yellow-700">注意：</h4>
+                    <p className="text-sm text-yellow-600">{records.filter(r => !r.isValid).length} 條紀錄因資料格式錯誤或欄位缺失而未顯示在主要列表或分析中。請檢查上傳檔案的以下欄位：{ [...new Set(records.filter(r => !r.isValid).flatMap(r => r.validationErrors))].join(', ') }。</p>
+                    </div>
+                )}
             </div>
-          )}
         </div>
-      </div>
-      
-      <div className={`${activeTab === 'management' ? 'space-y-8' : 'hidden'}`}>
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">⚙️ 管理設定</h2>
-          <section className="mb-8">
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">故障原因管理</h3>
-            <div className="flex gap-2 mb-2">
-              <input type="text" value={newFaultReason} onChange={e => setNewFaultReason(e.target.value)} placeholder="新增故障原因" className="flex-grow p-2 border rounded-md"/>
-              <button onClick={handleAddFaultReason} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">新增</button>
+
+        <div id="upload-content" className={`tab-content ${activeTab === 'upload' ? 'block' : 'hidden'}`}>
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">上傳 Excel 維修紀錄</h2>
+                <p className="text-gray-600 mb-2">支援 .xlsx 或 .xls 格式。</p>
+                <p className="text-gray-600 mb-4">必要欄位：工作屬性、請修日期 (YYYY/MM/DD)、請修時間 (HH:mm 12小時制)、故障描述、處理情形。</p>
+                {!isXlsxReady && <p className="text-orange-600 mb-2">Excel 處理功能載入中，請稍候... 如果長時間未就緒，請檢查網路連線或重新整理頁面。</p>}
+                <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                    disabled={isLoading || !isXlsxReady}/>
             </div>
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => handleExportManagedList(managedFaultReasons, '故障原因清單')} className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md text-sm">匯出 JSON</button>
-              <label className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md text-sm cursor-pointer">匯入 JSON<input type="file" accept=".json" className="hidden" onChange={(e) => handleImportManagedList(e, 'fault')} /></label>
-            </div>
-            <ul className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
-              {managedFaultReasons.map(reason => (
-                <li key={reason.id} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
-                  <span>{reason.text}</span>
-                  <button onClick={() => handleDeleteFaultReason(reason.id)} className="text-red-500 hover:text-red-700 font-medium">刪除</button>
-                </li>
-              ))}
-              {managedFaultReasons.length === 0 && <li className="text-gray-500 text-center p-2">尚未定義故障原因</li>}
-            </ul>
-          </section>
-          <section className="mb-8">
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">材料名稱管理</h3>
-            <div className="flex gap-2 mb-2">
-              <input type="text" value={newMaterialName} onChange={e => setNewMaterialName(e.target.value)} placeholder="新增材料名稱 (例如：LED燈泡-10W)" className="flex-grow p-2 border rounded-md"/>
-              <button onClick={handleAddMaterialName} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">新增</button>
-            </div>
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => handleExportManagedList(managedMaterialNames, '材料名稱清單')} className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md text-sm">匯出 JSON</button>
-              <label className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md text-sm cursor-pointer">匯入 JSON<input type="file" accept=".json" className="hidden" onChange={(e) => handleImportManagedList(e, 'material')} /></label>
-            </div>
-            <ul className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
-              {managedMaterialNames.map(material => (
-                <li key={material.id} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
-                  <span>{material.name}</span>
-                  <button onClick={() => handleDeleteMaterialName(material.id)} className="text-red-500 hover:text-red-700 font-medium">刪除</button>
-                </li>
-              ))}
-              {managedMaterialNames.length === 0 && <li className="text-gray-500 text-center p-2">尚未定義材料名稱</li>}
-            </ul>
-          </section>
-          <section>
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">待檢閱的未分類項目</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-lg font-medium text-gray-600 mb-2">未分類故障描述：</h4>
-                {uncategorizedFaultDescriptions.length > 0 ? (
-                  <ul className="space-y-1 max-h-48 overflow-y-auto border p-2 rounded-md bg-yellow-50">
-                    {uncategorizedFaultDescriptions.map((desc, index) => (
-                      <li key={`uf-${index}`} className="text-sm text-yellow-800 p-1 rounded hover:bg-yellow-100 flex justify-between items-center">
-                        <span className="whitespace-normal break-words pr-2" title={desc}>{desc}</span>
-                        <button onClick={() => addUncategorizedToManagedList(desc, 'fault')} className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white py-0.5 px-1.5 rounded flex-shrink-0">加入原因</button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="text-gray-500 text-sm">目前無未分類故障描述。</p>}
-              </div>
-              <div>
-                <h4 className="text-lg font-medium text-gray-600 mb-2">未分類材料字串：</h4>
-                {uncategorizedMaterialStrings.length > 0 ? (
-                  <ul className="space-y-1 max-h-48 overflow-y-auto border p-2 rounded-md bg-yellow-50">
-                    {uncategorizedMaterialStrings.map((matStr, index) => (
-                      <li key={`um-${index}`} className="text-sm text-yellow-800 p-1 rounded hover:bg-yellow-100 flex justify-between items-center">
-                        <span className="whitespace-normal break-words pr-2" title={matStr}>{matStr}</span>
-                        <button onClick={() => addUncategorizedToManagedList(matStr, 'material')} className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white py-0.5 px-1.5 rounded flex-shrink-0">加入材料</button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="text-gray-500 text-sm">目前無未分類材料字串。</p>}
-              </div>
-            </div>
-          </section>
         </div>
-      </div>
-      
+        
+        <div id="management-content" className={`tab-content ${activeTab === 'management' ? 'block' : 'hidden'}`}>
+            <div className="bg-white p-6 rounded-lg shadow-lg space-y-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">⚙️ 管理設定</h2>
+                <section className="mb-8">
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">故障原因管理</h3>
+                    <div className="flex gap-2 mb-2">
+                    <input type="text" value={newFaultReason} onChange={e => setNewFaultReason(e.target.value)} placeholder="新增故障原因" className="flex-grow p-2 border rounded-md"/>
+                    <button onClick={handleAddFaultReason} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">新增</button>
+                    </div>
+                    <div className="flex gap-2 mb-4">
+                    <button onClick={() => handleExportManagedList(managedFaultReasons, '故障原因清單')} className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md text-sm">匯出 JSON</button>
+                    <label className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md text-sm cursor-pointer">匯入 JSON<input type="file" accept=".json" className="hidden" onChange={(e) => handleImportManagedList(e, 'fault')} /></label>
+                    </div>
+                    <ul className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                    {managedFaultReasons.map(reason => (
+                        <li key={reason.id} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                        <span>{reason.text}</span>
+                        <button onClick={() => handleDeleteFaultReason(reason.id)} className="text-red-500 hover:text-red-700 font-medium">刪除</button>
+                        </li>
+                    ))}
+                    {managedFaultReasons.length === 0 && <li className="text-gray-500 text-center p-2">尚未定義故障原因</li>}
+                    </ul>
+                </section>
+                <section className="mb-8">
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">材料名稱管理</h3>
+                    <div className="flex gap-2 mb-2">
+                    <input type="text" value={newMaterialName} onChange={e => setNewMaterialName(e.target.value)} placeholder="新增材料名稱 (例如：LED燈泡-10W)" className="flex-grow p-2 border rounded-md"/>
+                    <button onClick={handleAddMaterialName} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">新增</button>
+                    </div>
+                    <div className="flex gap-2 mb-4">
+                    <button onClick={() => handleExportManagedList(managedMaterialNames, '材料名稱清單')} className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md text-sm">匯出 JSON</button>
+                    <label className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md text-sm cursor-pointer">匯入 JSON<input type="file" accept=".json" className="hidden" onChange={(e) => handleImportManagedList(e, 'material')} /></label>
+                    </div>
+                    <ul className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                    {managedMaterialNames.map(material => (
+                        <li key={material.id} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                        <span>{material.name}</span>
+                        <button onClick={() => handleDeleteMaterialName(material.id)} className="text-red-500 hover:text-red-700 font-medium">刪除</button>
+                        </li>
+                    ))}
+                    {managedMaterialNames.length === 0 && <li className="text-gray-500 text-center p-2">尚未定義材料名稱</li>}
+                    </ul>
+                </section>
+                <section>
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">待檢閱的未分類項目</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 className="text-lg font-medium text-gray-600 mb-2">未分類故障描述：</h4>
+                        {uncategorizedFaultDescriptions.length > 0 ? (
+                        <ul className="space-y-1 max-h-48 overflow-y-auto border p-2 rounded-md bg-yellow-50">
+                            {uncategorizedFaultDescriptions.map((desc, index) => (
+                            <li key={`uf-${index}`} className="text-sm text-yellow-800 p-1 rounded hover:bg-yellow-100 flex justify-between items-center">
+                                <span className="whitespace-normal break-words pr-2" title={desc}>{desc}</span>
+                                <button onClick={() => addUncategorizedToManagedList(desc, 'fault')} className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white py-0.5 px-1.5 rounded flex-shrink-0">加入原因</button>
+                            </li>
+                            ))}
+                        </ul>
+                        ) : <p className="text-gray-500 text-sm">目前無未分類故障描述。</p>}
+                    </div>
+                    <div>
+                        <h4 className="text-lg font-medium text-gray-600 mb-2">未分類材料字串：</h4>
+                        {uncategorizedMaterialStrings.length > 0 ? (
+                        <ul className="space-y-1 max-h-48 overflow-y-auto border p-2 rounded-md bg-yellow-50">
+                            {uncategorizedMaterialStrings.map((matStr, index) => (
+                            <li key={`um-${index}`} className="text-sm text-yellow-800 p-1 rounded hover:bg-yellow-100 flex justify-between items-center">
+                                <span className="whitespace-normal break-words pr-2" title={matStr}>{matStr}</span>
+                                <button onClick={() => addUncategorizedToManagedList(matStr, 'material')} className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white py-0.5 px-1.5 rounded flex-shrink-0">加入材料</button>
+                            </li>
+                            ))}
+                        </ul>
+                        ) : <p className="text-gray-500 text-sm">目前無未分類材料字串。</p>}
+                    </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+      </main>
+
       <footer className="text-center text-sm text-gray-500 mt-8 pb-4 screenshot-ignore">科工館設施維修智能分析系統 © {new Date().getFullYear()}</footer>
     </div>
   );
@@ -1326,7 +1351,7 @@ const CustomMessageModal = ({ show, text, type, onClose }) => {
   if (type === 'error') { titleText = "錯誤"; titleColor = "text-red-600"; }
   if (type === 'success') { titleText = "成功"; titleColor = "text-green-600"; }
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[100] screenshot-ignore">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-[101] screenshot-ignore">
       <div className="p-5 border w-auto max-w-md shadow-lg rounded-md bg-white mx-4">
         <div className="text-center">
           <h3 className={`text-xl leading-6 font-medium ${titleColor} mb-2`}>{titleText}</h3>
